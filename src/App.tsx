@@ -17,9 +17,12 @@
 import { useRef, useState } from "react";
 import "./App.scss";
 import { LiveAPIProvider } from "./contexts/LiveAPIContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import SidePanel from "./components/side-panel/SidePanel";
 import { Altair } from "./components/altair/Altair";
 import ControlTray from "./components/control-tray/ControlTray";
+import { ThemeTest } from "./components/ThemeTest";
+import { Box, CssBaseline } from "@mui/material";
 import cn from "classnames";
 
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
@@ -38,35 +41,67 @@ function App() {
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
 
   return (
-    <div className="App">
-      <LiveAPIProvider url={uri} apiKey={API_KEY}>
-        <div className="streaming-console">
-          <SidePanel />
-          <main>
-            <div className="main-app-area">
-              {/* APP goes here */}
-              <Altair />
-              <video
-                className={cn("stream", {
-                  hidden: !videoRef.current || !videoStream,
-                })}
-                ref={videoRef}
-                autoPlay
-                playsInline
-              />
-            </div>
+    <ThemeProvider>
+      <CssBaseline />
+      <Box 
+        className="App" 
+        sx={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          color: 'text.primary',
+          bgcolor: 'background.default',
+          backgroundImage: `url(${process.env.PUBLIC_URL}/welcomeScreen.png)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1
+          },
+          '& > *': {
+            position: 'relative',
+            zIndex: 2
+          }
+        }}
+      >
+        <LiveAPIProvider url={uri} apiKey={API_KEY}>
+          <div className="streaming-console">
+            <SidePanel />
+            <main>
+              <div className="main-app-area">
+                <ThemeTest />
+                <Altair />
+                <video
+                  className={cn("stream", {
+                    hidden: !videoRef.current || !videoStream,
+                  })}
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                />
+              </div>
 
-            <ControlTray
-              videoRef={videoRef}
-              supportsVideo={true}
-              onVideoStreamChange={setVideoStream}
-            >
-              {/* put your own buttons here */}
-            </ControlTray>
-          </main>
-        </div>
-      </LiveAPIProvider>
-    </div>
+              <ControlTray
+                videoRef={videoRef}
+                supportsVideo={true}
+                onVideoStreamChange={setVideoStream}
+              >
+                {/* put your own buttons here */}
+              </ControlTray>
+            </main>
+          </div>
+        </LiveAPIProvider>
+      </Box>
+    </ThemeProvider>
   );
 }
 

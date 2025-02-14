@@ -21,7 +21,7 @@ import cn from "classnames";
 import { ReactNode } from "react";
 import { useLoggerStore } from "../../lib/store-logger";
 import SyntaxHighlighter from "react-syntax-highlighter";
-import { vs2015 as dark } from "react-syntax-highlighter/dist/esm/styles/hljs";
+import { vs2015 as dark } from "react-syntax-highlighter/dist/cjs/styles/hljs";
 import {
   ClientContentMessage,
   isClientContentMessage,
@@ -51,7 +51,7 @@ const LogEntry = ({
     message,
   }: {
     message: StreamingLog["message"];
-  }) => ReactNode;
+  }) => JSX.Element;
 }): JSX.Element => (
   <li
     className={cn(
@@ -76,11 +76,11 @@ const PlainTextMessage = ({
   message,
 }: {
   message: StreamingLog["message"];
-}) => <span>{message as string}</span>;
+}): JSX.Element => <span>{message as string}</span>;
 
 type Message = { message: StreamingLog["message"] };
 
-const AnyMessage = ({ message }: Message) => (
+const AnyMessage = ({ message }: Message): JSX.Element => (
   <pre>{JSON.stringify(message, null, "  ")}</pre>
 );
 

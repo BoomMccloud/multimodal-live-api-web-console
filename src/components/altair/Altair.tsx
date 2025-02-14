@@ -14,10 +14,32 @@
  * limitations under the License.
  */
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
-import { useEffect, useRef, useState, memo } from "react";
-import vegaEmbed from "vega-embed";
+import { useEffect, useRef, useState, memo, useMemo } from "react";
+import vegaEmbed, { Config } from "vega-embed";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ToolCall } from "../../multimodal-live-types";
+import { Box, Paper, styled, useTheme } from "@mui/material";
+import { useTheme as useCustomTheme } from "../../contexts/ThemeContext";
+
+const StyledVisualizationContainer = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: theme.shadows[1],
+  transition: 'all 0.2s ease-in-out',
+  '&:hover': {
+    boxShadow: theme.shadows[2],
+  },
+  '.vega-embed': {
+    backgroundColor: 'transparent',
+    padding: theme.spacing(1),
+    borderRadius: theme.shape.borderRadius,
+    '& .vega-actions': {
+      display: 'none',
+    },
+  },
+}));
 
 const declaration: FunctionDeclaration = {
   name: "render_altair",
@@ -38,6 +60,32 @@ const declaration: FunctionDeclaration = {
 function AltairComponent() {
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig } = useLiveAPIContext();
+  const theme = useTheme();
+  const { mode } = useCustomTheme();
+
+  const vegaConfig = useMemo<Config>(() => ({
+    background: 'transparent',
+    axis: {
+      labelColor: theme.palette.text.primary,
+      titleColor: theme.palette.text.primary,
+      gridColor: theme.palette.divider,
+    },
+    legend: {
+      labelColor: theme.palette.text.primary,
+      titleColor: theme.palette.text.primary,
+    },
+    title: {
+      color: theme.palette.text.primary,
+    },
+    style: {
+      "guide-label": {
+        fill: theme.palette.text.primary,
+      },
+      "guide-title": {
+        fill: theme.palette.text.primary,
+      },
+    },
+  }), [theme.palette.text.primary, theme.palette.divider]);
 
   useEffect(() => {
     setConfig({
@@ -98,10 +146,18 @@ function AltairComponent() {
 
   useEffect(() => {
     if (embedRef.current && jsonString) {
-      vegaEmbed(embedRef.current, JSON.parse(jsonString));
+      vegaEmbed(embedRef.current, JSON.parse(jsonString), {
+        config: vegaConfig,
+        theme: mode === 'dark' ? 'dark' : 'excel',
+      });
     }
-  }, [embedRef, jsonString]);
-  return <div className="vega-embed" ref={embedRef} />;
+  }, [embedRef, jsonString, vegaConfig, mode]);
+
+  return (
+    <StyledVisualizationContainer>
+      <Box className="vega-embed" ref={embedRef} />
+    </StyledVisualizationContainer>
+  );
 }
 
 export const Altair = memo(AltairComponent);

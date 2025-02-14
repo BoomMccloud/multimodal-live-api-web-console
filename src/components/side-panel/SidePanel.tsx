@@ -14,20 +14,100 @@
  * limitations under the License.
  */
 
-import cn from "classnames";
 import { useEffect, useRef, useState } from "react";
 import { RiSidebarFoldLine, RiSidebarUnfoldLine } from "react-icons/ri";
-import Select from "react-select";
+import ReactSelect from "react-select";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { useLoggerStore } from "../../lib/store-logger";
 import Logger, { LoggerFilterType } from "../logger/Logger";
-import "./side-panel.scss";
+import { Box, IconButton, Typography, Paper, TextField, Button, useTheme } from "@mui/material";
+import SendIcon from '@mui/icons-material/Send';
+import { styled } from '@mui/material/styles';
 
-const filterOptions = [
+type OptionType = {
+  value: string;
+  label: string;
+};
+
+const filterOptions: OptionType[] = [
   { value: "conversations", label: "Conversations" },
   { value: "tools", label: "Tool Use" },
   { value: "none", label: "All" },
 ];
+
+const StyledSidePanel = styled(Box)(({ theme }) => ({
+  background: theme.palette.background.paper,
+  width: '72px',
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100vh',
+  transition: 'all 0.2s ease-in',
+  borderRight: `1px solid ${theme.palette.divider}`,
+  color: theme.palette.text.primary,
+  fontFamily: theme.typography.fontFamily,
+  fontSize: '14px',
+  '&.open': {
+    width: '380px',
+  },
+}));
+
+const StyledSelect = styled(ReactSelect)(({ theme }) => ({
+  minWidth: '220px',
+  flexGrow: 1,
+  '& .react-select__control': {
+    background: theme.palette.background.default,
+    color: theme.palette.text.primary,
+    minHeight: '32px',
+    maxHeight: '32px',
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: '6px',
+    boxShadow: 'none',
+    '&:hover': {
+      borderColor: theme.palette.action.hover,
+    },
+  },
+  '& .react-select__value-container': {
+    padding: '0 8px',
+  },
+  '& .react-select__single-value': {
+    color: theme.palette.text.primary,
+    marginLeft: 0,
+  },
+  '& .react-select__menu': {
+    background: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: '6px',
+    boxShadow: theme.shadows[4],
+    width: '100%',
+    minWidth: '180px',
+    zIndex: 2,
+  },
+  '& .react-select__option': {
+    background: 'transparent',
+    color: theme.palette.text.primary,
+    fontSize: '14px',
+    padding: '8px 12px',
+    '&:hover': {
+      background: theme.palette.action.hover,
+    },
+    '&.react-select__option--is-focused': {
+      background: theme.palette.action.hover,
+    },
+    '&.react-select__option--is-selected': {
+      background: theme.palette.primary.main,
+      color: theme.palette.primary.contrastText,
+    },
+  },
+  '& .react-select__indicator': {
+    color: theme.palette.text.secondary,
+  },
+  '& .react-select__indicator-separator': {
+    backgroundColor: theme.palette.divider,
+  },
+  '& .react-select__placeholder': {
+    color: theme.palette.text.disabled,
+  },
+}));
 
 export default function SidePanel() {
   const { connected, client } = useLiveAPIContext();
@@ -35,15 +115,11 @@ export default function SidePanel() {
   const loggerRef = useRef<HTMLDivElement>(null);
   const loggerLastHeightRef = useRef<number>(-1);
   const { log, logs } = useLoggerStore();
+  const theme = useTheme();
 
   const [textInput, setTextInput] = useState("");
-  const [selectedOption, setSelectedOption] = useState<{
-    value: string;
-    label: string;
-  } | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [selectedOption, setSelectedOption] = useState<OptionType | null>(null);
 
-  //scroll the log to the bottom when new logs come in
   useEffect(() => {
     if (loggerRef.current) {
       const el = loggerRef.current;
@@ -55,7 +131,6 @@ export default function SidePanel() {
     }
   }, [logs]);
 
-  // listen for log events and store them
   useEffect(() => {
     client.on("log", log);
     return () => {
@@ -64,98 +139,165 @@ export default function SidePanel() {
   }, [client, log]);
 
   const handleSubmit = () => {
-    client.send([{ text: textInput }]);
-
-    setTextInput("");
-    if (inputRef.current) {
-      inputRef.current.innerText = "";
+    if (textInput.trim()) {
+      client.send([{ text: textInput }]);
+      setTextInput("");
     }
   };
 
   return (
-    <div className={`side-panel ${open ? "open" : ""}`}>
-      <header className="top">
-        <h2>Console</h2>
-        {open ? (
-          <button className="opener" onClick={() => setOpen(false)}>
-            <RiSidebarFoldLine color="#b4b8bb" />
-          </button>
-        ) : (
-          <button className="opener" onClick={() => setOpen(true)}>
-            <RiSidebarUnfoldLine color="#b4b8bb" />
-          </button>
+    <StyledSidePanel className={open ? "open" : ""}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: open ? 'space-between' : 'center', 
+        alignItems: 'center',
+        p: 2,
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        minHeight: '64px',
+      }}>
+        {open && (
+          <Typography variant="h6" sx={{ 
+            color: theme.palette.text.primary,
+            fontWeight: 500,
+            fontSize: '16px'
+          }}>
+            Please Take A Look
+          </Typography>
         )}
-      </header>
-      <section className="indicators">
-        <Select
-          className="react-select"
-          classNamePrefix="react-select"
-          styles={{
-            control: (baseStyles) => ({
-              ...baseStyles,
-              background: "var(--Neutral-15)",
-              color: "var(--Neutral-90)",
-              minHeight: "33px",
-              maxHeight: "33px",
-              border: 0,
-            }),
-            option: (styles, { isFocused, isSelected }) => ({
-              ...styles,
-              backgroundColor: isFocused
-                ? "var(--Neutral-30)"
-                : isSelected
-                  ? "var(--Neutral-20)"
-                  : undefined,
-            }),
+        <IconButton 
+          onClick={() => setOpen(!open)}
+          sx={{ 
+            color: theme.palette.text.secondary,
+            '&:hover': {
+              color: theme.palette.text.primary,
+              background: theme.palette.action.hover
+            }
           }}
-          defaultValue={selectedOption}
-          options={filterOptions}
-          onChange={(e) => {
-            setSelectedOption(e);
-          }}
-        />
-        <div className={cn("streaming-indicator", { connected })}>
-          {connected
-            ? `🔵${open ? " Streaming" : ""}`
-            : `⏸️${open ? " Paused" : ""}`}
-        </div>
-      </section>
-      <div className="side-panel-container" ref={loggerRef}>
-        <Logger
-          filter={(selectedOption?.value as LoggerFilterType) || "none"}
-        />
-      </div>
-      <div className={cn("input-container", { disabled: !connected })}>
-        <div className="input-content">
-          <textarea
-            className="input-area"
-            ref={inputRef}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSubmit();
-              }
-            }}
-            onChange={(e) => setTextInput(e.target.value)}
-            value={textInput}
-          ></textarea>
-          <span
-            className={cn("input-content-placeholder", {
-              hidden: textInput.length,
-            })}
-          >
-            Type&nbsp;something...
-          </span>
+        >
+          {open ? <RiSidebarFoldLine /> : <RiSidebarUnfoldLine />}
+        </IconButton>
+      </Box>
 
-          <button
-            className="send-button material-symbols-outlined filled"
-            onClick={handleSubmit}
-          >
-            send
-          </button>
-        </div>
-      </div>
-    </div>
+      {open && (
+        <>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            p: 2, 
+            gap: 2,
+            width: '100%',
+          }}>
+            <Paper
+              sx={{
+                px: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                bgcolor: theme.palette.background.default,
+                color: connected ? theme.palette.success.main : theme.palette.text.disabled,
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: '6px',
+                height: '32px',
+                boxSizing: 'border-box'
+              }}
+            >
+              <Box sx={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: '50%', 
+                bgcolor: connected ? theme.palette.success.main : theme.palette.text.disabled
+              }} />
+              <Typography variant="body2" sx={{ fontSize: '14px' }}>
+                {connected ? 'Connected' : 'Disconnected'}
+              </Typography>
+            </Paper>
+
+            <StyledSelect
+              className="react-select"
+              classNamePrefix="react-select"
+              defaultValue={selectedOption}
+              options={filterOptions}
+              onChange={(newValue: any) => setSelectedOption(newValue)}
+            />
+          </Box>
+
+          <Box ref={loggerRef} sx={{ 
+            flexGrow: 1, 
+            overflow: 'auto',
+            width: '100%',
+            px: 2,
+            py: 1,
+          }}>
+            <Logger
+              filter={(selectedOption?.value as LoggerFilterType) || "none"}
+            />
+          </Box>
+
+          <Paper sx={{ 
+            p: 2,
+            borderTop: `1px solid ${theme.palette.divider}`,
+            bgcolor: 'transparent'
+          }}>
+            <Box sx={{ 
+              display: 'flex',
+              gap: 1,
+              alignItems: 'center'
+            }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Type something..."
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                disabled={!connected}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: theme.palette.background.default,
+                    borderRadius: '6px',
+                    '& fieldset': {
+                      borderColor: theme.palette.divider,
+                    },
+                    '&:hover fieldset': {
+                      borderColor: theme.palette.action.hover,
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    input: {
+                      color: theme.palette.text.primary,
+                      '&::placeholder': {
+                        color: theme.palette.text.disabled,
+                        opacity: 1,
+                      },
+                    },
+                  },
+                }}
+              />
+              <IconButton 
+                onClick={handleSubmit}
+                disabled={!connected || !textInput.trim()}
+                sx={{
+                  color: theme.palette.primary.main,
+                  '&:hover': {
+                    background: theme.palette.action.hover,
+                  },
+                  '&.Mui-disabled': {
+                    color: theme.palette.text.disabled,
+                  }
+                }}
+              >
+                <SendIcon />
+              </IconButton>
+            </Box>
+          </Paper>
+        </>
+      )}
+    </StyledSidePanel>
   );
 }

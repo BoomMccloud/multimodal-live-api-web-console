@@ -23,7 +23,9 @@ import { useScreenCapture } from "../../hooks/use-screen-capture";
 import { useWebcam } from "../../hooks/use-webcam";
 import { AudioRecorder } from "../../lib/audio-recorder";
 import AudioPulse from "../audio-pulse/AudioPulse";
-import "./control-tray.scss";
+import { Box, IconButton, Paper, styled, useTheme, Tooltip } from "@mui/material";
+import { Mic, MicOff, Videocam, VideocamOff, PresentToAll, CancelPresentation, PlayArrow, Pause, LightMode, DarkMode } from "@mui/icons-material";
+import { useTheme as useCustomTheme } from "../../contexts/ThemeContext";
 
 export type ControlTrayProps = {
   videoRef: RefObject<HTMLVideoElement>;
@@ -34,26 +36,110 @@ export type ControlTrayProps = {
 
 type MediaStreamButtonProps = {
   isStreaming: boolean;
-  onIcon: string;
-  offIcon: string;
+  onIcon: ReactNode;
+  offIcon: ReactNode;
   start: () => Promise<any>;
   stop: () => any;
 };
+
+const StyledControlTray = styled('section')(({ theme }) => ({
+  position: 'absolute',
+  bottom: 0,
+  left: '50%',
+  transform: 'translate(-50%, 0)',
+  display: 'inline-flex',
+  justifyContent: 'center',
+  alignItems: 'flex-start',
+  gap: theme.spacing(1),
+  paddingBottom: theme.spacing(2),
+}));
+
+const StyledActionNav = styled(Paper)(({ theme }) => ({
+  background: theme.palette.background.paper,
+  borderRadius: 27,
+  border: `1px solid ${theme.palette.divider}`,
+  display: 'inline-flex',
+  gap: theme.spacing(1.5),
+  alignItems: 'center',
+  padding: theme.spacing(1.25),
+  transition: 'all 0.6s ease-in',
+  '&.disabled': {
+    opacity: 0.7,
+    pointerEvents: 'none',
+  }
+}));
+
+const StyledIconButton = styled(IconButton)(({ theme }) => ({
+  width: 48,
+  height: 48,
+  borderRadius: 18,
+  backgroundColor: theme.palette.background.default,
+  color: theme.palette.text.secondary,
+  border: `1px solid ${theme.palette.divider}`,
+  transition: 'all 0.2s ease-in-out',
+  '&:hover': {
+    backgroundColor: theme.palette.action.hover,
+    transform: 'translateY(-2px)',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+  },
+  '&.mic-button': {
+    backgroundColor: theme.palette.error.main,
+    color: theme.palette.error.contrastText,
+    '&:hover': {
+      backgroundColor: theme.palette.error.dark,
+    },
+  },
+  '&.connect-button': {
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    '&:hover': {
+      backgroundColor: theme.palette.primary.dark,
+    },
+    '&.connected': {
+      backgroundColor: theme.palette.secondary.main,
+      color: theme.palette.secondary.contrastText,
+      '&:hover': {
+        backgroundColor: theme.palette.secondary.dark,
+      },
+    }
+  }
+}));
+
+const ConnectionContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
+  '.connection-button-container': {
+    borderRadius: 27,
+    border: `1px solid ${theme.palette.divider}`,
+    background: theme.palette.background.paper,
+    padding: theme.spacing(1.25),
+  },
+  '.text-indicator': {
+    fontSize: 11,
+    color: theme.palette.primary.main,
+    userSelect: 'none',
+    opacity: 0,
+    transition: 'opacity 0.2s ease-in-out',
+  },
+  '&.connected .text-indicator': {
+    opacity: 1,
+  }
+}));
 
 /**
  * button used for triggering webcam or screen-capture
  */
 const MediaStreamButton = memo(
-  ({ isStreaming, onIcon, offIcon, start, stop }: MediaStreamButtonProps) =>
-    isStreaming ? (
-      <button className="action-button" onClick={stop}>
-        <span className="material-symbols-outlined">{onIcon}</span>
-      </button>
-    ) : (
-      <button className="action-button" onClick={start}>
-        <span className="material-symbols-outlined">{offIcon}</span>
-      </button>
-    ),
+  ({ isStreaming, onIcon, offIcon, start, stop }: MediaStreamButtonProps) => (
+    <StyledIconButton
+      onClick={isStreaming ? stop : start}
+    >
+      {isStreaming ? onIcon : offIcon}
+    </StyledIconButton>
+  ),
 );
 
 function ControlTray({
@@ -62,6 +148,7 @@ function ControlTray({
   onVideoStreamChange = () => {},
   supportsVideo,
 }: ControlTrayProps) {
+  const { mode, toggleColorMode } = useCustomTheme();
   const videoStreams = [useWebcam(), useScreenCapture()];
   const [activeVideoStream, setActiveVideoStream] =
     useState<MediaStream | null>(null);
@@ -157,23 +244,19 @@ function ControlTray({
   };
 
   return (
-    <section className="control-tray">
+    <StyledControlTray>
       <canvas style={{ display: "none" }} ref={renderCanvasRef} />
-      <nav className={cn("actions-nav", { disabled: !connected })}>
-        <button
-          className={cn("action-button mic-button")}
+      <StyledActionNav className={cn({ disabled: !connected })}>
+        <StyledIconButton
+          className="mic-button"
           onClick={() => setMuted(!muted)}
         >
-          {!muted ? (
-            <span className="material-symbols-outlined filled">mic</span>
-          ) : (
-            <span className="material-symbols-outlined filled">mic_off</span>
-          )}
-        </button>
+          {!muted ? <Mic /> : <MicOff />}
+        </StyledIconButton>
 
-        <div className="action-button no-action outlined">
+        <Box className="audio-pulse-container">
           <AudioPulse volume={volume} active={connected} hover={false} />
-        </div>
+        </Box>
 
         {supportsVideo && (
           <>
@@ -181,36 +264,41 @@ function ControlTray({
               isStreaming={screenCapture.isStreaming}
               start={changeStreams(screenCapture)}
               stop={changeStreams()}
-              onIcon="cancel_presentation"
-              offIcon="present_to_all"
+              onIcon={<CancelPresentation />}
+              offIcon={<PresentToAll />}
             />
             <MediaStreamButton
               isStreaming={webcam.isStreaming}
               start={changeStreams(webcam)}
               stop={changeStreams()}
-              onIcon="videocam_off"
-              offIcon="videocam"
+              onIcon={<VideocamOff />}
+              offIcon={<Videocam />}
             />
           </>
         )}
+        <Tooltip title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}>
+          <StyledIconButton onClick={toggleColorMode}>
+            {mode === 'light' ? <DarkMode /> : <LightMode />}
+          </StyledIconButton>
+        </Tooltip>
         {children}
-      </nav>
+      </StyledActionNav>
 
-      <div className={cn("connection-container", { connected })}>
-        <div className="connection-button-container">
-          <button
+      <ConnectionContainer className={cn({ connected })}>
+        <Box className="connection-button-container">
+          <StyledIconButton
             ref={connectButtonRef}
-            className={cn("action-button connect-toggle", { connected })}
+            className={cn("connect-button", { connected })}
             onClick={connected ? disconnect : connect}
           >
-            <span className="material-symbols-outlined filled">
-              {connected ? "pause" : "play_arrow"}
-            </span>
-          </button>
-        </div>
-        <span className="text-indicator">Streaming</span>
-      </div>
-    </section>
+            {connected ? <Pause /> : <PlayArrow />}
+          </StyledIconButton>
+        </Box>
+        <Box component="span" className="text-indicator">
+          Streaming
+        </Box>
+      </ConnectionContainer>
+    </StyledControlTray>
   );
 }
 

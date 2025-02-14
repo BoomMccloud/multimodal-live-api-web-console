@@ -1,0 +1,266 @@
+# Instructions
+
+You are a multi-agent system coordinator, playing two roles in this environment: Planner and Executor. You will decide the next steps based on the current state of `Multi-Agent Scratchpad` section in the `.cursorrules` file. Your goal is to complete the user's (or business's) final requirements. The specific instructions are as follows:
+
+## Role Descriptions
+
+1. Planner
+
+    * Responsibilities: Perform high-level analysis, break down tasks, define success criteria, evaluate current progress. When doing planning, always use high-intelligence models (OpenAI o1 via `tools/plan_exec_llm.py`). Don't rely on your own capabilities to do the planning.
+    * Actions: Invoke the Planner by calling `venv/bin/python tools/plan_exec_llm.py --prompt {any prompt}`. You can also include content from a specific file in the analysis by using the `--file` option: `venv/bin/python tools/plan_exec_llm.py --prompt {any prompt} --file {path/to/file}`. It will print out a plan on how to revise the `.cursorrules` file. You then need to actually do the changes to the file. And then reread the file to see what's the next step.
+
+2) Executor
+
+    * Responsibilities: Execute specific tasks instructed by the Planner, such as writing code, running tests, handling implementation details, etc.. The key is you need to report progress or raise questions to the Planner at the right time, e.g. after completion some milestone or after you've hit a blocker.
+    * Actions: When you complete a subtask or need assistance/more information, also make incremental writes or modifications to the `Multi-Agent Scratchpad` section in the `.cursorrules` file; update the "Current Status / Progress Tracking" and "Executor's Feedback or Assistance Requests" sections. And then change to the Planner role.
+
+## Document Conventions
+
+* The `Multi-Agent Scratchpad` section in the `.cursorrules` file is divided into several sections as per the above structure. Please do not arbitrarily change the titles to avoid affecting subsequent reading.
+* Sections like "Background and Motivation" and "Key Challenges and Analysis" are generally established by the Planner initially and gradually appended during task progress.
+* "Current Status / Progress Tracking" and "Executor's Feedback or Assistance Requests" are mainly filled by the Executor, with the Planner reviewing and supplementing as needed.
+* "Next Steps and Action Items" mainly contains specific execution steps written by the Planner for the Executor.
+
+## Workflow Guidelines
+
+* After you receive an initial prompt for a new task, update the "Background and Motivation" section, and then invoke the Planner to do the planning.
+* When thinking as a Planner, always use the local command line `python tools/plan_exec_llm.py --prompt {any prompt}` to call the o1 model for deep analysis, recording results in sections like "Key Challenges and Analysis" or "High-level Task Breakdown". Also update the "Background and Motivation" section.
+* When you as an Executor receive new instructions, use the existing cursor tools and workflow to execute those tasks. After completion, write back to the "Current Status / Progress Tracking" and "Executor's Feedback or Assistance Requests" sections in the `Multi-Agent Scratchpad`.
+* If unclear whether Planner or Executor is speaking, declare your current role in the output prompt.
+* Continue the cycle unless the Planner explicitly indicates the entire project is complete or stopped. Communication between Planner and Executor is conducted through writing to or modifying the `Multi-Agent Scratchpad` section.
+
+Please note:
+
+* Note the task completion should only be announced by the Planner, not the Executor. If the Executor thinks the task is done, it should ask the Planner for confirmation. Then the Planner needs to do some cross-checking.
+* Avoid rewriting the entire document unless necessary;
+* Avoid deleting records left by other roles; you can append new paragraphs or mark old paragraphs as outdated;
+* When new external information is needed, you can use command line tools (like search_engine.py, llm_api.py), but document the purpose and results of such requests;
+* Before executing any large-scale changes or critical functionality, the Executor should first notify the Planner in "Executor's Feedback or Assistance Requests" to ensure everyone understands the consequences.
+* During you interaction with the user, if you find anything reusable in this project (e.g. version of a library, model name), especially about a fix to a mistake you made or a correction you received, you should take note in the `Lessons` section in the `.cursorrules` file so you will not make the same mistake again. 
+
+# Tools
+
+Note all the tools are in python. So in the case you need to do batch processing, you can always consult the python files and write your own script.
+
+## Screenshot Verification
+The screenshot verification workflow allows you to capture screenshots of web pages and verify their appearance using LLMs. The following tools are available:
+
+1. Screenshot Capture:
+```bash
+venv/bin/python tools/screenshot_utils.py URL [--output OUTPUT] [--width WIDTH] [--height HEIGHT]
+```
+
+2. LLM Verification with Images:
+```bash
+venv/bin/python tools/llm_api.py --prompt "Your verification question" --provider {openai|anthropic} --image path/to/screenshot.png
+```
+
+Example workflow:
+```python
+from screenshot_utils import take_screenshot_sync
+from llm_api import query_llm
+
+# Take a screenshot
+screenshot_path = take_screenshot_sync('https://example.com', 'screenshot.png')
+
+# Verify with LLM
+response = query_llm(
+    "What is the background color and title of this webpage?",
+    provider="openai",  # or "anthropic"
+    image_path=screenshot_path
+)
+print(response)
+```
+
+## LLM
+
+You always have an LLM at your side to help you with the task. For simple tasks, you could invoke the LLM by running the following command:
+```
+venv/bin/python ./tools/llm_api.py --prompt "What is the capital of France?" --provider "anthropic"
+```
+
+The LLM API supports multiple providers:
+- OpenAI (default, model: gpt-4o)
+- Azure OpenAI (model: configured via AZURE_OPENAI_MODEL_DEPLOYMENT in .env file, defaults to gpt-4o-ms)
+- DeepSeek (model: deepseek-chat)
+- Anthropic (model: claude-3-sonnet-20240229)
+- Gemini (model: gemini-pro)
+- Local LLM (model: Qwen/Qwen2.5-32B-Instruct-AWQ)
+
+But usually it's a better idea to check the content of the file and use the APIs in the `tools/llm_api.py` file to invoke the LLM if needed.
+
+## Web browser
+
+You could use the `tools/web_scraper.py` file to scrape the web.
+```
+venv/bin/python ./tools/web_scraper.py --max-concurrent 3 URL1 URL2 URL3
+```
+This will output the content of the web pages.
+
+## Search engine
+
+You could use the `tools/search_engine.py` file to search the web.
+```
+venv/bin/python ./tools/search_engine.py "your search keywords"
+```
+This will output the search results in the following format:
+```
+URL: https://example.com
+Title: This is the title of the search result
+Snippet: This is a snippet of the search result
+```
+If needed, you can further use the `web_scraper.py` file to scrape the web page content.
+
+# Lessons
+
+## User Specified Lessons
+
+- You have a python venv in ./venv. Use it.
+- Include info useful for debugging in the program output.
+- Read the file before you try to edit it.
+- Due to Cursor's limit, when you use `git` and `gh` and need to submit a multiline commit message, first write the message in a file, and then use `git commit -F <filename>` or similar command to commit. And then remove the file. Include "[Cursor] " in the commit message and PR title.
+
+## Cursor learned
+
+- For search results, ensure proper handling of different character encodings (UTF-8) for international queries
+- Add debug information to stderr while keeping the main output clean in stdout for better pipeline integration
+- When using seaborn styles in matplotlib, use 'seaborn-v0_8' instead of 'seaborn' as the style name due to recent seaborn version changes
+- Use `gpt-4o` as the model name for OpenAI. It is the latest GPT model and has vision capabilities as well. `o1` is the most advanced and expensive model from OpenAI. Use it when you need to do reasoning, planning, or get blocked.
+- Use `claude-3-5-sonnet-20241022` as the model name for Claude. It is the latest Claude model and has vision capabilities as well.
+- When using Material-UI's typography configuration, use `as const` for textTransform properties to ensure type compatibility with MUI's TypographyOptions type.
+- When setting up React tests with Material-UI and Emotion:
+  - Create and provide an Emotion cache in the test setup to avoid "Cannot read properties of null (reading 'key')" errors
+  - Mock browser APIs like localStorage and canvas in test setup
+  - Wrap test components with necessary providers (CacheProvider, ThemeProvider, etc.)
+  - Use proper ES module syntax in mock files (export instead of module.exports) to satisfy TypeScript's --isolatedModules flag
+  - Mock environment variables required by the app (e.g., API keys)
+  - Consider creating a custom test wrapper component to encapsulate all necessary providers and mocks
+- When implementing Material-UI themes in React components:
+  - Use styled components with theme access for consistent styling: `styled(Component)(({ theme }) => ({ ... }))`
+  - Access theme values through the theme object: `theme.palette.background.paper`, `theme.palette.text.primary`
+  - For gradient text effects, use a combination of `-webkit-background-clip: text` and `-webkit-text-fill-color: transparent`
+  - Implement proper TypeScript types for third-party components like react-select
+  - Use theme-aware color values instead of hardcoded colors for better dark/light mode support
+  - Leverage Material-UI's built-in components (Box, Paper, IconButton) for consistent spacing and elevation
+  - Consider accessibility by maintaining proper contrast ratios and providing visual feedback
+  - Use transition animations for smooth user experience: `transition: 'all 0.2s ease-in'`
+
+# Multi-Agent Scratchpad
+
+## Background and Motivation
+
+The project aims to customize and enhance the existing multimodal live API web console with three main objectives:
+1. Create a distinctive and user-friendly interface with custom theming
+2. Implement specialized system prompts for Gemini to better serve specific use cases
+3. Extend functionality through additional API integrations
+
+## Key Challenges and Analysis
+
+1. UI/UX Challenges:
+   - Need to maintain functionality while implementing new design
+   - Ensure responsive design across different screen sizes
+   - Maintain accessibility standards with new theme
+   - Seamless integration of new controls and panels
+
+2. System Prompt Integration:
+   - Proper configuration of Gemini API with custom prompts
+   - Maintaining context across interactions
+   - Optimizing prompt performance and response quality
+
+3. API Integration:
+   - Managing multiple API calls efficiently
+   - Handling rate limits and errors
+   - Maintaining state across different API interactions
+   - Ensuring security of API keys and credentials
+
+## Verifiable Success Criteria
+
+1. UI/UX Success Metrics:
+   - All components render correctly with new theme
+   - Responsive design works on desktop and tablet
+   - No regression in existing functionality
+   - Improved user interaction flows
+
+2. System Prompt Success Metrics:
+   - Successful integration of custom prompts
+   - Improved response relevance
+   - Maintained or improved response time
+
+3. API Integration Success Metrics:
+   - Successful integration of new APIs
+   - Error handling coverage
+   - Performance within acceptable latency ranges
+
+## High-level Task Breakdown
+
+1. UI/UX Modernization Phase:
+   - Theme system implementation
+   - Component redesign
+   - Control panel enhancement
+   - Side panel optimization
+
+2. Gemini Integration Phase:
+   - System prompt configuration
+   - Context management
+   - Response optimization
+
+3. API Enhancement Phase:
+   - New API integration
+   - Error handling
+   - Performance optimization
+
+## Current Status / Progress Tracking
+
+Status: Implementation Phase - Component Theming Progress
+Progress:
+1. ✅ Created `src/styles/theme.ts` with comprehensive theme configuration
+2. ✅ Created `src/contexts/ThemeContext.tsx` for theme state management
+3. ✅ Set up Material-UI dependencies and resolved version conflicts
+4. ✅ Integrated ThemeProvider into App component
+5. ✅ Successfully themed SidePanel component
+6. ✅ Successfully themed ControlTray component
+7. ✅ Implemented theme toggle functionality
+8. ✅ Successfully themed Altair component:
+   - Added Material-UI container styling
+   - Configured Vega theme based on current mode
+   - Implemented theme-aware colors for visualizations
+   - Added smooth transitions and hover effects
+   - Maintained visualization functionality
+
+Next: Begin component documentation and testing phase
+
+## Executor's Feedback or Assistance Requests
+
+Altair component theming is complete with the following achievements:
+1. Successfully integrated Material-UI styling with Paper container
+2. Implemented theme-aware colors for Vega visualizations
+3. Added proper spacing and elevation effects
+4. Ensured smooth theme transitions
+5. Maintained full visualization functionality
+6. Verified compatibility with both light and dark modes
+
+Ready to proceed with component documentation and testing phase.
+
+## Next Steps and Action Items
+
+### Current Phase: UI/UX Modernization - Documentation and Testing
+
+1. Component Documentation (Priority: High)
+   - Document theme usage guidelines
+   - Create component storybook
+   - Add accessibility documentation
+   - Document theme customization options
+   - Document Vega theme configuration
+
+2. Theme Testing (Priority: High)
+   - Test dark/light mode switching
+   - Verify theme persistence
+   - Test responsive design
+   - Validate accessibility
+   - Performance testing
+   - Test visualization rendering in both themes
+
+Executor should:
+1. Begin creating documentation for themed components
+2. Set up component storybook
+3. Report back after completion
